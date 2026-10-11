@@ -23,6 +23,7 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: arm64
+          toolset: '14.44'
       - name: Build, native volume oracle, then mandatory all-extra tests
         run: python ci/native/build_tet.py
       - uses: actions/upload-artifact@v4
