@@ -1,0 +1,34 @@
+name: Native ARM64 PyTetWild 0.3.0 geometry
+on:
+  push:
+    branches: [ci/native-arm64-0.3.0-geometry]
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: windows-11-arm
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: pyvista/pytetwild
+          ref: eea46df87ef58e861956b7a710f42ab58eaa02a0
+          submodules: recursive
+          path: source
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          architecture: arm64
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: arm64
+      - name: Build, native volume oracle, then mandatory all-extra tests
+        run: python ci/native/build_tet.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pytetwild-0.3.0-cp312-win-arm64
+          path: ${{ github.workspace }}/evidence
+          if-no-files-found: error
+          retention-days: 14
