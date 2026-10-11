@@ -1,0 +1,43 @@
+name: Probe Geogram legacy hash_map toolchains
+on:
+  push:
+    branches: [ci/native-arm64-geogram-toolchain-probe]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: windows-11-arm
+    timeout-minutes: 10
+    steps:
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: arm64
+      - name: Compile the actual legacy-header dependency
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force "$env:GITHUB_WORKSPACE/evidence"
+          Set-Location "$env:GITHUB_WORKSPACE/evidence"
+          '#include <hash_map>' | Set-Content probe.cpp
+          'int main() { stdext::hash_map<int,int> values; values[1]=2; return values[1]!=2; }' | Add-Content probe.cpp
+          $results = @()
+          foreach ($toolset in Get-ChildItem "$env:VSINSTALLDIR/VC/Tools/MSVC" -Directory) {
+            $compiler = Join-Path $toolset.FullName 'bin/HostARM64/arm64/cl.exe'
+            $include = Join-Path $toolset.FullName 'include'
+            $item = @{ version=$toolset.Name; hash_map_header=(Test-Path "$include/hash_map"); arm64_compiler=(Test-Path $compiler) }
+            if (Test-Path $compiler) {
+              & $compiler /nologo /c /std:c++17 /D_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS "/I$include" "/Fo$($toolset.Name).obj" probe.cpp 2>&1 | Out-File "$($toolset.Name).log"
+              $item.compile_exit = $LASTEXITCODE
+            }
+            $results += $item
+          }
+          $results | ConvertTo-Json -Depth 4 | Set-Content inventory.json
+          Get-Content inventory.json
+          exit 0
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: geogram-toolchain-probe
+          path: ${{ github.workspace }}/evidence
+          if-no-files-found: error
+          retention-days: 14
